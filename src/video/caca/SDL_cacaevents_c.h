@@ -19,30 +19,17 @@
     Sam Lantinga
     slouken@libsdl.org
 */
-#include "SDL_config.h"
 
-#ifndef _SDL_ggivideo_h
-#define _SDL_ggivideo_h
+#ifdef SAVE_RCSID
+static char rcsid =
+ "@(#) $Id: libsdl-1.2.11-libcaca.patch,v 1.1 2006/09/18 16:06:06 mr_bones_ Exp $";
+#endif
 
-#include <ggi/ggi.h>
+#include "SDL_cacavideo.h"
 
-#include "SDL_mouse.h"
-#include "../SDL_sysvideo.h"
+/* Variables and functions exported by SDL_sysevents.c to other parts.
+   of the native video subsystem (SDL_sysvideo.c)
+*/
+extern void Caca_PumpEvents(_THIS);
+extern void Caca_InitOSKeymap(_THIS);
 
-#define _THIS SDL_VideoDevice *this
-
-/* Private display data */
-
-struct SDL_PrivateVideoData
-{
-	ggi_visual_t *ggivis;
-};
-
-extern ggi_visual_t VIS; /* FIXME: use the private data struct */
-
-extern int SDL_OpenKeyboard(void);
-extern void SDL_CloseKeyboard(void);
-extern int SDL_OpenMouse(void);
-extern void SDL_CloseMouse(void);
-
-#endif /* _SDL_ggivideo_h */
