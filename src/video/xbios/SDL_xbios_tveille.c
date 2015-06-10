@@ -1,6 +1,6 @@
 /*
     SDL - Simple DirectMedia Layer
-    Copyright (C) 1997-2012 Sam Lantinga
+    Copyright (C) 1997-2004 Sam Lantinga
 
     This library is free software; you can redistribute it and/or
     modify it under the terms of the GNU Library General Public
@@ -32,32 +32,21 @@
 #include "SDL_xbios.h"
 #include "SDL_xbios_tveille.h"
 
-static tveille_t *cookie_veil = NULL;
+static tveille_t *cookie_veil;
 static int status;
 
 int SDL_XBIOS_TveillePresent(_THIS)
 {
-	long dummy;
-
-	cookie_veil = NULL;
-	if (Getcookie(C_VeiL, &dummy) == C_FOUND) {
-		cookie_veil = (tveille_t *) dummy;
-	}
-
-	return (cookie_veil != NULL);
+	return (Getcookie(C_VeiL, (unsigned long *)&cookie_veil) == C_FOUND);
 }
 
 void SDL_XBIOS_TveilleDisable(_THIS)
 {
-	if (cookie_veil) {
-		status = cookie_veil->enabled;
-		cookie_veil->enabled = 0xff;
-	}
+	status = cookie_veil->enabled;
+	cookie_veil->enabled = 0xff;
 }
 
-void SDL_XBIOS_TveilleEnable(_THIS)
+void SDL_XBIOS_TveilleRestore(_THIS)
 {
-	if (cookie_veil) {
-		cookie_veil->enabled = status;
-	}
+	cookie_veil->enabled = status;
 }

@@ -1,6 +1,6 @@
 /*
     SDL - Simple DirectMedia Layer
-    Copyright (C) 1997-2012 Sam Lantinga
+    Copyright (C) 1997-2006 Sam Lantinga
 
     This library is free software; you can redistribute it and/or
     modify it under the terms of the GNU Lesser General Public
@@ -25,18 +25,16 @@
 #define _SDL_dgavideo_h
 
 #include <X11/Xlib.h>
-
-/* Apparently some X11 systems can't include this multiple times... */
-#ifndef SDL_INCLUDED_XLIBINT_H
-#define SDL_INCLUDED_XLIBINT_H 1
 #include <X11/Xlibint.h>
-#endif
-
 #include <X11/Xproto.h>
 
 #include "SDL_mouse.h"
 #include "SDL_mutex.h"
 #include "../SDL_sysvideo.h"
+
+#if SDL_VIDEO_DRIVER_X11_DPMS
+#include <X11/extensions/dpms.h>
+#endif
 
 /* Hidden "this" pointer for the video functions */
 #define _THIS	SDL_VideoDevice *this
@@ -96,9 +94,9 @@ struct SDL_PrivateVideoData {
 #endif
 
 	/* Screensaver settings */
-	int allow_screensaver;
+	int screensaver_timeout;
+	BOOL dpms_enabled;
 };
-
 /* Old variable names */
 #define DGA_Display		(this->hidden->DGA_Display)
 #define DGA_Screen		DefaultScreen(DGA_Display)
@@ -119,6 +117,7 @@ struct SDL_PrivateVideoData {
 #define hw_lock			(this->hidden->hw_lock)
 #define DGA_event_base		(this->hidden->event_base)
 #define event_lock		(this->hidden->event_lock)
-#define allow_screensaver	(this->hidden->allow_screensaver)
+#define screensaver_timeout	(this->hidden->screensaver_timeout)
+#define dpms_enabled		(this->hidden->dpms_enabled)
 
 #endif /* _SDL_dgavideo_h */

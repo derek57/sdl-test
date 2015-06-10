@@ -1,6 +1,6 @@
 /*
     SDL - Simple DirectMedia Layer
-    Copyright (C) 1997-2012 Sam Lantinga
+    Copyright (C) 1997-2004 Sam Lantinga
 
     This library is free software; you can redistribute it and/or
     modify it under the terms of the GNU Library General Public
@@ -32,6 +32,12 @@
 
 #include "SDL_xbios.h"
 
+/*--- Defines ---*/
+
+#ifndef C_VeiL
+#define C_VeiL 0x5665694CL
+#endif
+
 /*--- Structures ---*/
 
 typedef struct {
@@ -53,7 +59,7 @@ typedef struct {
 	unsigned char	serial_redir;
 	unsigned char	dummy4;
 	void		(*oldserial_ptr)();
-} tveille_t;
+} __attribute__((packed)) tveille_t;
 
 /*--- Functions prototypes ---*/
 

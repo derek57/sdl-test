@@ -1,6 +1,6 @@
 /*
     SDL - Simple DirectMedia Layer
-    Copyright (C) 1997-2012 Sam Lantinga
+    Copyright (C) 1997-2006 Sam Lantinga
 
     This library is free software; you can redistribute it and/or
     modify it under the terms of the GNU Lesser General Public
@@ -109,8 +109,10 @@ static SDL_VideoDevice *X11_CreateDevice(int devindex)
 			SDL_memset(device, 0, (sizeof *device));
 			device->hidden = (struct SDL_PrivateVideoData *)
 					SDL_malloc((sizeof *device->hidden));
+			SDL_memset(device->hidden, 0, (sizeof *device->hidden));
 			device->gl_data = (struct SDL_PrivateGLData *)
 					SDL_malloc((sizeof *device->gl_data));
+			SDL_memset(device->gl_data, 0, (sizeof *device->gl_data));
 		}
 		if ( (device == NULL) || (device->hidden == NULL) ||
 		                         (device->gl_data == NULL) ) {
@@ -120,10 +122,6 @@ static SDL_VideoDevice *X11_CreateDevice(int devindex)
 		}
 		SDL_memset(device->hidden, 0, (sizeof *device->hidden));
 		SDL_memset(device->gl_data, 0, (sizeof *device->gl_data));
-
-#if SDL_VIDEO_OPENGL_GLX
-		device->gl_data->swap_interval = -1;
-#endif
 
 		/* Set the driver flags */
 		device->handles_any_size = 1;
@@ -240,7 +238,7 @@ static int xio_errhandler(Display *d)
 	/* Ack!  Lost X11 connection! */
 
 	/* We will crash if we try to clean up our display */
-	if ( SDL_VideoSurface && current_video->hidden->Ximage ) {
+	if ( current_video->hidden->Ximage ) {
 		SDL_VideoSurface->pixels = NULL;
 	}
 	current_video->hidden->X11_Display = NULL;
@@ -417,22 +415,6 @@ static void create_aux_windows(_THIS)
 	}
     }
 
-	{
-		pid_t pid = getpid();
-		char hostname[256];
-
-		if (pid > 0 && gethostname(hostname, sizeof(hostname)) > -1) {
-			Atom _NET_WM_PID = XInternAtom(SDL_Display, "_NET_WM_PID", False);
-			Atom WM_CLIENT_MACHINE = XInternAtom(SDL_Display, "WM_CLIENT_MACHINE", False);
-			
-			hostname[sizeof(hostname)-1] = '\0';
-			XChangeProperty(SDL_Display, WMwindow, _NET_WM_PID, XA_CARDINAL, 32,
-					PropModeReplace, (unsigned char *)&pid, 1);
-			XChangeProperty(SDL_Display, WMwindow, WM_CLIENT_MACHINE, XA_STRING, 8,
-					PropModeReplace, (unsigned char *)hostname, SDL_strlen(hostname));
-		}
-	}
-
 	/* Setup the communication with the IM server */
 	/* create_aux_windows may be called several times against the same
 	   Display.  We should reuse the SDL_IM if one has been opened for
@@ -574,7 +556,7 @@ static void create_aux_windows(_THIS)
 
 static int X11_VideoInit(_THIS, SDL_PixelFormat *vformat)
 {
-	const char *env;
+	const char *env = NULL;
 	char *display;
 	int i;
 
@@ -687,15 +669,11 @@ static int X11_VideoInit(_THIS, SDL_PixelFormat *vformat)
 
 	/* Allow environment override of screensaver disable. */
 	env = SDL_getenv("SDL_VIDEO_ALLOW_SCREENSAVER");
-	if ( env ) {
-		allow_screensaver = SDL_atoi(env);
-	} else {
-#ifdef SDL_VIDEO_DISABLE_SCREENSAVER
-		allow_screensaver = 0;
-#else
-		allow_screensaver = 1;
-#endif
-	}
+	this->hidden->allow_screensaver = ( (env && SDL_atoi(env)) ? 1 : 0 );
+
+	/* Save DPMS and screensaver settings */
+	X11_SaveScreenSaver(SDL_Display, &screensaver_timeout, &dpms_enabled);
+	X11_DisableScreenSaver(this, SDL_Display);
 
 	/* See if we have been passed a window to use */
 	SDL_windowid = SDL_getenv("SDL_WINDOWID");
@@ -789,11 +767,16 @@ static void X11_SetSizeHints(_THIS, int w, int h, Uint32 flags)
 
 	hints = XAllocSizeHints();
 	if ( hints ) {
-		if (!(flags & SDL_RESIZABLE)) {
+		if ( flags & SDL_RESIZABLE ) {
+			hints->min_width = 32;
+			hints->min_height = 32;
+			hints->max_height = 4096;
+			hints->max_width = 4096;
+		} else {
 			hints->min_width = hints->max_width = w;
 			hints->min_height = hints->max_height = h;
-			hints->flags = PMaxSize | PMinSize;
 		}
+		hints->flags = PMaxSize | PMinSize;
 		if ( flags & SDL_FULLSCREEN ) {
 			hints->x = 0;
 			hints->y = 0;
@@ -802,11 +785,6 @@ static void X11_SetSizeHints(_THIS, int w, int h, Uint32 flags)
 		/* Center it, if desired */
 		if ( X11_WindowPosition(this, &hints->x, &hints->y, w, h) ) {
 			hints->flags |= USPosition;
-
-			/* Hints must be set before moving the window, otherwise an
-			   unwanted ConfigureNotify event will be issued */
-			XSetWMNormalHints(SDL_Display, WMwindow, hints);
-
 			XMoveWindow(SDL_Display, WMwindow, hints->x, hints->y);
 
 			/* Flush the resize event so we don't catch it later */
@@ -898,7 +876,8 @@ static void X11_SetSizeHints(_THIS, int w, int h, Uint32 flags)
 		}
 		/* Finally unset the transient hints if necessary */
 		if ( ! set ) {
-			XDeleteProperty(SDL_Display, WMwindow, XA_WM_TRANSIENT_FOR);
+			/* NOTE: Does this work? */
+			XSetTransientForHint(SDL_Display, WMwindow, None);
 		}
 	}
 }
@@ -1177,8 +1156,6 @@ SDL_Surface *X11_SetVideoMode(_THIS, SDL_Surface *current,
 			current = NULL;
 			goto done;
 		}
-		X11_PendingConfigureNotifyWidth = width;
-		X11_PendingConfigureNotifyHeight = height;
 	} else {
 		if (X11_CreateWindow(this,current,width,height,bpp,flags) < 0) {
 			current = NULL;
@@ -1220,10 +1197,7 @@ SDL_Surface *X11_SetVideoMode(_THIS, SDL_Surface *current,
 		current->w = width;
 		current->h = height;
 		current->pitch = SDL_CalculatePitch(current);
-		if (X11_ResizeImage(this, current, flags) < 0) {
-			current = NULL;
-			goto done;
-		}
+		X11_ResizeImage(this, current, flags);
 	}
 
 	/* Clear these flags and set them only if they are in the new set. */
@@ -1531,6 +1505,9 @@ void X11_VideoQuit(_THIS)
 		if ( SDL_GetAppState() & SDL_APPACTIVE ) {
 			X11_SwapVidModeGamma(this);
 		}
+
+		/* Restore DPMS and screensaver settings */
+		X11_RestoreScreenSaver(this, SDL_Display, screensaver_timeout, dpms_enabled);
 
 		/* Free that blank cursor */
 		if ( SDL_BlankCursor != NULL ) {

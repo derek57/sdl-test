@@ -1,6 +1,6 @@
 /*
     SDL - Simple DirectMedia Layer
-    Copyright (C) 1997-2012  Sam Lantinga
+    Copyright (C) 1997-2003  Sam Lantinga
 
     This library is free software; you can redistribute it and/or
     modify it under the terms of the GNU Library General Public
@@ -26,11 +26,11 @@
 /*
  * GL_ARB_Multisample is supposed to be available in 10.1, according to Apple:
  *
- *   http://developer.apple.com/graphicsimaging/opengl/extensions.html#GL_ARB_multisample
+ *   http://developer.apple.com/opengl/extensions.html#GL_ARB_multisample
  *
  *  ...but it isn't in the system headers, according to Sam:
  *
- *   http://lists.libsdl.org/pipermail/sdl-libsdl.org/2003-December/039794.html
+ *   http://www.libsdl.org/pipermail/sdl/2003-December/058335.html
  *
  * These are normally enums and not #defines in the system headers.
  *
@@ -41,24 +41,13 @@
 #define NSOpenGLPFASamples ((NSOpenGLPixelFormatAttribute) 56)
 #endif
 
-#ifdef __powerpc__   /* we lost this in 10.6, which has no PPC support. */
+
 @implementation NSOpenGLContext (CGLContextAccess)
 - (CGLContextObj) cglContext;
 {
     return _contextAuxiliary;
 }
 @end
-CGLContextObj QZ_GetCGLContextObj(NSOpenGLContext *nsctx)
-{
-    return [nsctx cglContext];
-}
-#else
-CGLContextObj QZ_GetCGLContextObj(NSOpenGLContext *nsctx)
-{
-    return (CGLContextObj) [nsctx CGLContextObj];
-}
-#endif
-
 
 /* OpenGL helper functions (used internally) */
 
@@ -153,7 +142,7 @@ int QZ_SetupOpenGL (_THIS, int bpp, Uint32 flags) {
      * http://lists.apple.com/archives/mac-opengl/2006/Jan/msg00080.html )
      */
     if ( this->gl_config.swap_control >= 0 ) {
-        GLint value;
+        long value;
         value = this->gl_config.swap_control;
         [ gl_context setValues: &value forParameter: NSOpenGLCPSwapInterval ];
     }
@@ -175,8 +164,8 @@ int QZ_SetupOpenGL (_THIS, int bpp, Uint32 flags) {
     #endif
 
     {
-        GLint cache_max = 64;
-        CGLContextObj ctx = QZ_GetCGLContextObj(gl_context);
+        long cache_max = 64;
+        CGLContextObj ctx = [ gl_context cglContext ];
         CGLSetParameter (ctx, GLI_SUBMIT_FUNC_CACHE_MAX, &cache_max);
         CGLSetParameter (ctx, GLI_ARRAY_FUNC_CACHE_MAX, &cache_max);
     }
@@ -261,7 +250,7 @@ int    QZ_GL_GetAttribute   (_THIS, SDL_GLattr attrib, int* value) {
         }
         case SDL_GL_ACCELERATED_VISUAL:
         {
-            GLint val;
+            long val;
 	    /* FIXME: How do we get this information here?
             [fmt getValues: &val forAttribute: NSOpenGLPFAAccelerated attr forVirtualScreen: 0];
 	    */
@@ -271,7 +260,7 @@ int    QZ_GL_GetAttribute   (_THIS, SDL_GLattr attrib, int* value) {
         }
         case SDL_GL_SWAP_CONTROL:
         {
-            GLint val;
+            long val;
             [ gl_context getValues: &val forParameter: NSOpenGLCPSwapInterval ];
             *value = val;
             return 0;

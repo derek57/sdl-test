@@ -1,6 +1,6 @@
 /*
     SDL - Simple DirectMedia Layer
-    Copyright (C) 1997-2012 Sam Lantinga
+    Copyright (C) 1997-2006 Sam Lantinga
 
     This library is free software; you can redistribute it and/or
     modify it under the terms of the GNU Lesser General Public
@@ -73,7 +73,7 @@ static unsigned char vdi_index[256] = {
 	9, 10, 11, 14, 12, 15, 13, 255
 };
 
-static const char empty_name[]="";
+static const unsigned char empty_name[]="";
 
 /* Initialization/Query functions */
 static int GEM_VideoInit(_THIS, SDL_PixelFormat *vformat);
@@ -129,7 +129,7 @@ static SDL_VideoDevice *GEM_CreateDevice(int devindex)
 {
 	SDL_VideoDevice *device;
 	int vectors_mask;
-/*	unsigned long dummy;*/
+	unsigned long dummy;
 
 	/* Initialize all variables that we clean on shutdown */
 	device = (SDL_VideoDevice *)SDL_malloc(sizeof(SDL_VideoDevice));
@@ -216,8 +216,9 @@ VideoBootStrap GEM_bootstrap = {
 static void VDI_ReadExtInfo(_THIS, short *work_out)
 {
 	unsigned long EdDI_version;
-	long cookie_EdDI;
-	Uint16 clut_type;
+	unsigned long cookie_EdDI;
+	Uint32 num_colours;
+	Uint16 clut_type, num_bits;
 
 	/* Read EdDI informations */
 	if  (Getcookie(C_EdDI, &cookie_EdDI) == C_NOTFOUND) {
@@ -230,6 +231,8 @@ static void VDI_ReadExtInfo(_THIS, short *work_out)
 
 	VDI_format = work_out[0];
 	clut_type = work_out[1];
+	num_bits = work_out[2];
+	num_colours = *((Uint32 *) &work_out[3]);
 
 	/* With EdDI>=1.1, we can have screen pitch, address and format
 	 * so we can directly write to screen without using vro_cpyfm
